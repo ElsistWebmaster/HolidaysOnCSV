@@ -1,0 +1,3574 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<plcProject caseSensitive="true" useCustomWorkspace="true" debugMode="false" extcheck="true" SFCControl="false" strictPointerCheck="true" copyWarningThreshold="200" version="2.2" useLD2="true" useFBMethods="false">
+	<image>HolidaysOnCSV.imgx</image>
+	<commSettings>ModbusTCP:255,1000,M#TCPIP:192.168.0.181/502,5000</commSettings>
+	<sources>
+		<main>
+			<resources/>
+			<tasks>
+				<task name="Back">
+					<program>FBDExample</program>
+					<program>STExample</program>
+				</task>
+			</tasks>
+			<globalVars>
+				<group name="Inputs">
+					<var name="Di00CPU" type="BOOL">
+						<descr>Di00 CPU module</descr>
+						<address type="I" typeVar="X" index="255" subIndex="0"/>
+					</var>
+				</group>
+				<group name="Outputs">
+					<var name="Do00CPU" type="BOOL">
+						<descr>Do00 CPU module</descr>
+						<address type="Q" typeVar="X" index="255" subIndex="0"/>
+					</var>
+				</group>
+			</globalVars>
+			<retainVars>
+				<group name="Inputs"/>
+				<group name="Outputs"/>
+			</retainVars>
+			<constantVars>
+				<group name="Inputs"/>
+				<group name="Outputs"/>
+			</constantVars>
+			<functions/>
+			<functionBlocks>
+				<functionBlock name="CSVHolidays" version="1.0.0">
+					<vars>
+						<inputVars>
+							<var name="Enable" type="BOOL">
+								<descr>FB Enable</descr>
+							</var>
+							<var name="Filename" type="STRING" length="32">
+								<descr>Festivity file name</descr>
+							</var>
+						</inputVars>
+						<outputVars>
+							<var name="Festivity" type="BOOL">
+								<descr>Festivity flag</descr>
+							</var>
+							<var name="Error" type="USINT">
+								<descr>Error code</descr>
+							</var>
+						</outputVars>
+						<externalVars>
+							<var name="SysDateTime" type="UDINT">
+								<descr>System Date/Time (Epoch)</descr>
+							</var>
+						</externalVars>
+						<localVars>
+							<var name="CaseBack" type="USINT">
+								<descr>Case back</descr>
+							</var>
+							<var name="CaseNr" type="USINT">
+								<descr>Case number</descr>
+							</var>
+							<var name="Ch" type="INT">
+								<descr>Character read</descr>
+							</var>
+							<var name="i" type="UDINT">
+								<descr>Auxiliary counter</descr>
+							</var>
+							<var name="FPos" type="DINT">
+								<descr>File position</descr>
+							</var>
+							<var name="Fp" type="FILEP">
+								<descr>File pointer</descr>
+							</var>
+							<var name="Ptr" type="@USINT">
+								<descr>Internal pointer</descr>
+							</var>
+							<var name="CSVCell" type="STRING" length="32">
+								<descr>CSV cell value</descr>
+							</var>
+							<var name="DateTime" type="SysETimeToDate">
+								<descr>Date/Time value</descr>
+							</var>
+							<var name="FDay" type="USINT">
+								<descr>Festivity day</descr>
+							</var>
+							<var name="FMonth" type="USINT">
+								<descr>Festivity month</descr>
+							</var>
+						</localVars>
+					</vars>
+					<iecDeclaration valid="TRUE">
+						<![CDATA[FUNCTION_BLOCK CSVHolidays
+
+VAR_INPUT
+	Enable : BOOL;	(* FB Enable *)
+	Filename : STRING[ 32 ];	(* Festivity file name *)
+END_VAR
+
+VAR_OUTPUT
+	Festivity : BOOL;	(* Festivity flag *)
+	Error : USINT;	(* Error code *)
+END_VAR
+
+VAR
+	CaseBack : USINT;	(* Case back *)
+	CaseNr : USINT;	(* Case number *)
+	Ch : INT;	(* Character read *)
+	i : UDINT;	(* Auxiliary counter *)
+	FPos : DINT;	(* File position *)
+	Fp : FILEP;	(* File pointer *)
+	Ptr : @USINT;	(* Internal pointer *)
+	CSVCell : STRING[ 32 ];	(* CSV cell value *)
+	DateTime : SysETimeToDate;	(* Date/Time value *)
+	FDay : USINT;	(* Festivity day *)
+	FMonth : USINT;	(* Festivity month *)
+END_VAR
+
+VAR_EXTERNAL
+	SysDateTime : UDINT;	(* System Date/Time (Epoch) *)
+END_VAR
+
+]]>
+					</iecDeclaration>
+					<interfaces/>
+					<methods/>
+					<sourceCode type="ST">
+						<![CDATA[/*  ****************************************************************************
+ FUNCTION BLOCK "CSVHolidays"
+********************************************************************************
+ This function block looks for holidays in a CSV file. In each row of the file,
+ you must define the date in day/month mode.
+ "1/1" 1st of january
+ "15/08" 15th of august
+ "31/12" 31th of december
+
+ It's a part of HolidaysOnCSV project.
+ Link: https://github.com/ElsistWebmaster/IOOnMQTT/archive/master.zip
+
+ Variable declarations:
+
+VAR_INPUT
+	Enable : BOOL;	(* FB Enable *)
+	Filename : STRING[ 32 ];	(* Festivity file name *)
+END_VAR
+
+VAR_OUTPUT
+	Festivity : BOOL;	(* Festivity flag *)
+	Error : USINT;	(* Error code *)
+END_VAR
+
+VAR
+	CaseBack : USINT;	(* Case back *)
+	CaseNr : USINT;	(* Case number *)
+	Ch : INT;	(* Character read *)
+	i : INT;	(* Auxiliary counter *)
+	FPos : DINT;	(* File position *)
+	Fp : FILEP;	(* File pointer *)
+	Ptr : @USINT;	(* Internal pointer *)
+	CSVCell : STRING[ 32 ];	(* CSV cell value *)
+	DateTime : SysETimeToDate;	(* Date/Time value *)
+	FDay : USINT;	(* Festivity day *)
+	FMonth : USINT;	(* Festivity month *)
+END_VAR
+
+VAR_EXTERNAL
+	SysDateTime : UDINT;	(* System Date/Time (Epoch) *)
+END_VAR
+
+***************************************************************************** */
+(* ************************************************************************** *)
+(* FB GESTIONE FESTIVITA'                                                     *)
+(* ************************************************************************** *)
+(* Questo blocco funzione esegue lettura delle festività da un file CSV e     *)
+(* gestisce il comando in uscita. Il file CSV deve avere una sola colonna e   *)
+(* per ogni riga si potrà definire nella cella la data della festività.       *)
+(*                                                                            *)
+(* "1/1" 1 gennaio                                                            *)
+(* "15/08" 15 agosto                                                          *)
+(* "31/12" 31 dicembre                                                        *)
+(* -------------------------------------------------------------------------- *)
+
+	(* ---------------------------------------------------------------------- *)
+	(* GESTIONE ABILITAZIONE                                                  *)
+	(* ---------------------------------------------------------------------- *)
+	(* Eseguo gestione abilitazione. Se errore occore disabilitare. *)
+
+	IF NOT(Enable) THEN CaseNr:=0; Error:=0; Festivity:=FALSE; RETURN; END_IF;
+	IF (Error <> 0) THEN RETURN; END_IF;
+	
+	(* Eseguo calcolo data/ora da Epoch time ad ogni secondo. *)
+
+	IF (CaseNr = 0) THEN
+		IF (SysDateTime = DateTime.EpochTime) THEN RETURN; END_IF;
+		DateTime.EpochTime:=SysDateTime;
+		DateTime(); (* Date/Time value *)
+	END_IF;
+	
+	(* ---------------------------------------------------------------------- *)
+	(* LETTURA FILE DEFINIZIONE FESTIVITA'                                    *)
+	(* ---------------------------------------------------------------------- *)
+	(* Apro file in "read", indicatore di posizione stream punta inizio. *)
+
+	Fp:=Sysfopen(Filename, 'r'); (* File pointer *)
+	IF (Fp = NULL) THEN Error:=10; RETURN; END_IF;
+
+    (* ---------------------------------------------------------------------- *)
+    (* GESTIONE LOOP                                                          *)
+    (* ---------------------------------------------------------------------- *)
+    (* Eseguo loop chiuso su while per permettere il passaggio di case senza *)
+    (* uscire dal programma. Se errore esco da WHILE e chiudo file. *)
+
+    WHILE (Error = 0) DO
+
+        (* ------------------------------------------------------------------ *)
+        (* GESTIONE NUMERO DI CASE                                            *)
+        (* ------------------------------------------------------------------ *)
+        (* Eseguo gestione chiamate subroutines di case. *)
+    
+        CASE (CaseNr) OF
+
+            (* ############################################################## *)
+            (* CASES GESTIONE COMANDO ORARIO                                  *)
+            (* ############################################################## *)
+
+            (* -------------------------------------------------------------- *)
+            (* Eseguo lettura record definizione festività. Il file CSV deve *)
+            (* avere una riga per ogni festività. *)
+			(* "1/1" 1 gennaio *)
+			(* "6/1" 6 gennaio *)
+
+            0:
+            FPos:=0; (* File position *)
+            CaseBack:=CaseNr+1; (* Case back *)
+            CaseNr:=100; (* Lettura record da file CSV *)
+
+            (* -------------------------------------------------------------- *)
+            (* Arrivo con valore di cella letto dal file, acquisisco giorno. *)
+
+            1:
+            IF NOT(SysVarsscanf(ADR(CSVCell), '%2d', USINT_TYPE, ADR(FDay))) THEN Error:=30; EXIT; END_IF;
+
+			(* Controllo se trovo "/". *)
+
+			Ptr:=SysStrFind(ADR(CSVCell),ADR('/'), FIND_GET_END);
+			IF (Ptr = NULL) THEN Error:=31; EXIT; END_IF;
+
+			(* Acquisisco mese. *)
+
+            IF NOT(SysVarsscanf(Ptr, '%2d', USINT_TYPE, ADR(FMonth))) THEN Error:=32; EXIT; END_IF;
+
+			(* Eseguo controllo se valore coincide con data odierna. *)
+			
+			IF ((FDay = DateTime.Day) AND (FMonth = DateTime.Month)) THEN
+				Festivity:=TRUE; (* Festivity flag *)
+				CaseNr:=0; (* Case number *)
+	            EXIT;
+	        END_IF;
+
+			(* Eseguo lettura di una nuova cella e ripeto controllo. *)
+
+            CaseBack:=CaseNr; (* Case back *)
+            CaseNr:=100; (* Lettura record da file CSV *)
+
+            (* ############################################################## *)
+            (* LETTURA RECORD DA FILE CSV                                     *)
+            (* ############################################################## *)
+
+            (* -------------------------------------------------------------- *)
+			(* Posiziono lettura su riga file CSV (1 cella per riga) *)
+
+			100:
+			FPos:=Sysfseek(Fp, FPos, ID_SEEK_SET); (* File position *)
+			IF (FPos = EOF) THEN Error:=100; EXIT; END_IF;
+
+			(* Inizializzo lettura valore festività dal file CSV. *)
+
+			Ptr:=ADR(CSVCell); (* Internal pointer *)
+			i:=Sysmemset(ADR(CSVCell), 0, TO_UINT(SIZEOF(CSVCell))); (* Azzero buffer *)
+            CaseNr:=CaseNr+1; (* Case number *)
+
+            (* -------------------------------------------------------------- *)
+			(* Viene eseguita lettura di una cella dal file CSV il valore *)
+			(* termina con il <CR><LF>. *)
+
+			101:
+			FPos:=FPos+1; (* File position *)
+			Ch:=Sysfgetc(Fp); (* Character read *)
+
+			(* Se fine file non ho trovato coincidenza con festività. *)
+
+			IF (Ch = EOF) THEN
+				Festivity:=FALSE; (* Festivity flag *)
+				CaseNr:=0; (* Case number *)
+	            EXIT;
+	        END_IF;
+
+			(* Trasferisco valore cella in buffer, proseguo se <CR>. *)
+				
+			@Ptr:=TO_USINT(Ch);
+			Ptr:=Ptr+1; (* Internal pointer *)
+			IF (Ch = 16#0D) THEN CaseNr:=CaseNr+1; END_IF;
+
+            (* -------------------------------------------------------------- *)
+			(* Verifico se  dopo <CR> c'è <LF>. Se tutto corretto termino la *)
+			(* lettura della cella e ritorno al case definito. *)
+
+			102:
+			FPos:=FPos+1; (* File position *)
+			Ch:=Sysfgetc(Fp); (* Character read *)
+			IF (Ch <> 16#0A) THEN Error:=110; EXIT; END_IF;
+            CaseNr:=CaseBack; (* Case number *)
+
+            (* -------------------------------------------------------------- *)
+            (* GESTIONE CASE ERRATO                                           *)
+            (* -------------------------------------------------------------- *)
+
+        ELSE
+    		Error:=250; (* Error code *)
+			EXIT;
+        END_CASE;
+    END_WHILE;
+
+	(* Eseguo chiusura file. *)    
+
+	IF (Sysfclose(Fp) <> 0) THEN Error:=251; END_IF;
+
+(* [End of file] *)
+
+]]>
+					</sourceCode>
+				</functionBlock>
+				<functionBlock name="SNTPRequest" version="1.0.0">
+					<descr>(eLLabNetworkLib_A500) Sends the NTP request</descr>
+					<vars>
+						<inputVars>
+							<var name="Query" type="BOOL">
+								<descr>SNTP query</descr>
+							</var>
+							<var name="SpyOn" type="BOOL">
+								<descr>Spy active</descr>
+							</var>
+							<var name="NTPServer" type="@USINT">
+								<descr>NTP server address</descr>
+							</var>
+						</inputVars>
+						<outputVars>
+							<var name="Done" type="BOOL">
+								<descr>Query done</descr>
+							</var>
+							<var name="Ok" type="BOOL">
+								<descr>Query Ok</descr>
+							</var>
+							<var name="Fault" type="BOOL">
+								<descr>Query fault</descr>
+							</var>
+							<var name="RTDelay" type="REAL">
+								<descr>Round trip delay (mS)</descr>
+							</var>
+							<var name="UTCTime" type="UDINT">
+								<descr>Coordinated Universal Time (Epoch)</descr>
+							</var>
+							<var name="Offset" type="REAL">
+								<descr>Offset time (mS)</descr>
+							</var>
+						</outputVars>
+						<externalVars>
+							<var name="SysActTaskID" type="USINT">
+								<descr>Task ID</descr>
+							</var>
+						</externalVars>
+						<localVars>
+							<var name="CaseNr" type="USINT">
+								<descr>Case number</descr>
+							</var>
+							<var name="DBf" type="BYTE" dim0="48">
+								<descr>Data buffer</descr>
+							</var>
+							<var name="i" type="INT">
+								<descr>Auxiliary variable</descr>
+							</var>
+							<var name="TimeBf" type="UDINT">
+								<descr>Time buffer</descr>
+							</var>
+							<var name="UDPClient" type="SysUDPClient">
+								<descr>UDP Client</descr>
+							</var>
+							<var name="Init" type="BOOL">
+								<descr>FB Init</descr>
+								<initValue>TRUE</initValue>
+							</var>
+							<var name="ABf" type="UDINT">
+								<descr>Auxiliary buffer</descr>
+							</var>
+							<var name="ErrorNr" type="UDINT">
+								<descr>Error number</descr>
+							</var>
+						</localVars>
+					</vars>
+					<iecDeclaration valid="TRUE">
+						<![CDATA[]]>
+					</iecDeclaration>
+					<interfaces/>
+					<methods/>
+					<sourceCode type="ST" encoded="true">
+						<![CDATA[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
+gXtcnBQAeF77zadqa1TiqkNpdxY9bkKSukU=]]>
+					</sourceCode>
+				</functionBlock>
+				<functionBlock name="eTON" version="1.0.0">
+					<descr>(eLLabStdLib_B200) On delay timer</descr>
+					<vars>
+						<inputVars>
+							<var name="IN" type="BOOL">
+								<descr>Timer input</descr>
+							</var>
+							<var name="PT" type="UDINT">
+								<descr>Preset time value (mS)</descr>
+							</var>
+						</inputVars>
+						<outputVars>
+							<var name="Q" type="BOOL">
+								<descr>Delayed output</descr>
+							</var>
+							<var name="ET" type="UDINT">
+								<descr>Executing time (mS)</descr>
+							</var>
+						</outputVars>
+						<externalVars>
+							<var name="SysTime" type="UDINT">
+								<descr>System time (mS)</descr>
+							</var>
+						</externalVars>
+						<localVars>
+							<var name="TimeBf" type="UDINT">
+								<descr>Time buffer</descr>
+							</var>
+						</localVars>
+					</vars>
+					<iecDeclaration valid="TRUE">
+						<![CDATA[]]>
+					</iecDeclaration>
+					<interfaces/>
+					<methods/>
+					<sourceCode type="ST" encoded="true">
+						<![CDATA[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
+hxkFYG6cykg=]]>
+					</sourceCode>
+				</functionBlock>
+			</functionBlocks>
+			<programs>
+				<program name="FBDExample" version="1.0.0">
+					<vars>
+						<localVars>
+							<var name="FBIstance" type="CSVHolidays">
+								<descr>FB istance</descr>
+							</var>
+							<var name="NTPAdjust" type="SNTPRequest">
+								<descr>NTP time adjust</descr>
+							</var>
+							<var name="Delay" type="eTON">
+								<descr>Delay time</descr>
+							</var>
+						</localVars>
+					</vars>
+					<iecDeclaration valid="TRUE">
+						<![CDATA[]]>
+					</iecDeclaration>
+					<sourceCode type="FBD">
+						<FBD>
+							<network order="N:1" width="200" height="14" error="false">
+								<conn id="C:0" error="false">
+									<segment xStart="16" yStart="6" xEnd="19" yEnd="6"/>
+									<startPin>FB:Delay.Q</startPin>
+									<endPin>FB:NTPAdjust.Query</endPin>
+								</conn>
+								<conn id="C:1" error="false">
+									<segment xStart="11" yStart="6" xEnd="12" yEnd="6"/>
+									<startPin>F:2.#O</startPin>
+									<endPin>FB:Delay.IN</endPin>
+								</conn>
+								<conn id="C:2" error="false">
+									<segment xStart="7" yStart="6" xEnd="7" yEnd="6"/>
+									<startPin>V:1</startPin>
+									<endPin>F:2.#0</endPin>
+								</conn>
+								<conn id="C:3" error="false">
+									<segment xStart="5" yStart="8" xEnd="12" yEnd="8"/>
+									<segment xEnd="12" yEnd="7"/>
+									<startPin>K:3</startPin>
+									<endPin>FB:Delay.PT</endPin>
+								</conn>
+								<conn id="C:4" error="false">
+									<segment xStart="17" yStart="11" xEnd="18" yEnd="11"/>
+									<segment xEnd="18" yEnd="8"/>
+									<segment xEnd="19" yEnd="8"/>
+									<startPin>O:4.1</startPin>
+									<endPin>FB:NTPAdjust.NTPServer</endPin>
+								</conn>
+								<conn id="C:5" error="false">
+									<segment xStart="7" yStart="11" xEnd="12" yEnd="11"/>
+									<startPin>K:5</startPin>
+									<endPin>O:4.0</endPin>
+								</conn>
+								<conn id="C:6" error="false">
+									<segment xStart="26" yStart="7" xEnd="30" yEnd="7"/>
+									<startPin>FB:NTPAdjust.Ok</startPin>
+									<endPin>F:6.EN</endPin>
+								</conn>
+								<conn id="C:7" error="false">
+									<segment xStart="26" yStart="10" xEnd="28" yEnd="10"/>
+									<segment xEnd="28" yEnd="8"/>
+									<segment xEnd="30" yEnd="8"/>
+									<startPin>FB:NTPAdjust.UTCTime</startPin>
+									<endPin>F:6.UTCDateTime</endPin>
+								</conn>
+								<comment id="CO:0" error="false" x="1" y="1">Eseguo sincronizzazione real time con time server su Internet</comment>
+								<const id="K:3" error="false" name="60000" x="5" y="8">
+									<pin>C:3</pin>
+								</const>
+								<const id="K:5" error="false" name="'0.pool.ntp.org'" x="7" y="11">
+									<pin>C:5</pin>
+								</const>
+								<var id="V:1" error="false" type="Input" name="NTPAdjust.Done" x="7" y="6">
+									<pin>C:2</pin>
+								</var>
+								<op id="O:4" error="false" width="5" name="ADR" x="12" y="11">
+									<inputPin name="0" negated="false">C:5</inputPin>
+									<outputPin name="1" negated="false">C:4</outputPin>
+								</op>
+								<fun id="F:2" error="false" width="4" name="NOT" x="7" y="6">
+									<inputPin name="#0" negated="false">C:2</inputPin>
+									<outputPin name="#O" negated="false">C:1</outputPin>
+								</fun>
+								<fun id="F:6" error="false" width="12" name="SysSetUTCDateTime" x="30" y="8">
+									<inputPin name="UTCDateTime" negated="false">C:7</inputPin>
+									<inputPinEn name="EN" negated="false">C:6</inputPinEn>
+									<outputPin name="SysSetUTCDateTime" negated="false"/>
+									<outputPinEno name="ENO" negated="false"/>
+								</fun>
+								<funBlock id="FB:NTPAdjust" error="false" width="7" name="SNTPRequest" x="19" y="6">
+									<inputPin name="Query" negated="false">C:0</inputPin>
+									<inputPin name="SpyOn" negated="false"/>
+									<inputPin name="NTPServer" negated="false">C:4</inputPin>
+									<outputPin name="Done" negated="false"/>
+									<outputPin name="Ok" negated="false">C:6</outputPin>
+									<outputPin name="Fault" negated="false"/>
+									<outputPin name="RTDelay" negated="false"/>
+									<outputPin name="UTCTime" negated="false">C:7</outputPin>
+									<outputPin name="Offset" negated="false"/>
+								</funBlock>
+								<funBlock id="FB:Delay" error="false" width="4" name="eTON" x="12" y="6">
+									<inputPin name="IN" negated="false">C:1</inputPin>
+									<inputPin name="PT" negated="false">C:3</inputPin>
+									<outputPin name="Q" negated="false">C:0</outputPin>
+									<outputPin name="ET" negated="false"/>
+								</funBlock>
+							</network>
+							<network order="N:2" width="200" height="12" error="false">
+								<conn id="C:0" error="false">
+									<segment xStart="11" yStart="6" xEnd="11" yEnd="6"/>
+									<startPin>V:1</startPin>
+									<endPin>FB:FBIstance.Enable</endPin>
+								</conn>
+								<conn id="C:1" error="false">
+									<segment xStart="17" yStart="6" xEnd="17" yEnd="6"/>
+									<startPin>V:2</startPin>
+									<endPin>FB:FBIstance.Festivity</endPin>
+								</conn>
+								<conn id="C:2" error="false">
+									<segment xStart="11" yStart="7" xEnd="11" yEnd="7"/>
+									<startPin>K:3</startPin>
+									<endPin>FB:FBIstance.Filename</endPin>
+								</conn>
+								<comment id="CO:0" error="false" x="1" y="1">Eseguo gestione FB di ricerca giorni festivi</comment>
+								<const id="K:3" error="false" name="'Storage/Festivity.csv'" x="11" y="7">
+									<pin>C:2</pin>
+								</const>
+								<var id="V:1" error="false" type="Input" name="Di00CPU" x="11" y="6">
+									<pin>C:0</pin>
+								</var>
+								<var id="V:2" error="false" type="Output" name="Do00CPU" x="17" y="6">
+									<pin>C:1</pin>
+								</var>
+								<funBlock id="FB:FBIstance" error="false" width="6" name="CSVHolidays" x="11" y="6">
+									<inputPin name="Enable" negated="false">C:0</inputPin>
+									<inputPin name="Filename" negated="false">C:2</inputPin>
+									<outputPin name="Festivity" negated="false">C:1</outputPin>
+									<outputPin name="Error" negated="false"/>
+								</funBlock>
+							</network>
+						</FBD>
+					</sourceCode>
+				</program>
+				<program name="STExample" version="1.0.0">
+					<vars>
+						<localVars>
+							<var name="DateTime" type="SysETimeToDate">
+								<descr>Date/Time value</descr>
+							</var>
+							<var name="Festivity" type="BOOL">
+								<descr>Festivity flag</descr>
+							</var>
+						</localVars>
+					</vars>
+					<iecDeclaration valid="TRUE">
+						<![CDATA[]]>
+					</iecDeclaration>
+					<sourceCode type="ST">
+						<![CDATA[(* ************************************************************************** *)
+(* GESTIONE FESTIVITA'                                                        *)
+(* ************************************************************************** *)
+
+	(* ---------------------------------------------------------------------- *)
+	(* GESTIONE DATA/ORA                                                      *)
+	(* ---------------------------------------------------------------------- *)
+	(* Eseguo calcolo data/ora da Epoch time ad ogni secondo. *)
+
+	IF (SysDateTime = DateTime.EpochTime) THEN RETURN; END_IF;
+	DateTime.EpochTime:=SysDateTime;
+	DateTime(); (* Date/Time value *)
+
+	(* Comparo con le date. *)
+
+	Festivity:=FALSE; (* Festivity flag *)
+	IF ((DateTime.Day = 1) AND (DateTime.Month = 1)) THEN Festivity:=TRUE; END_IF;
+	IF ((DateTime.Day = 6) AND (DateTime.Month = 1)) THEN Festivity:=TRUE; END_IF;
+	IF ((DateTime.Day = 15) AND (DateTime.Month = 8)) THEN Festivity:=TRUE; END_IF;
+
+(* [End of file] *)
+]]>
+					</sourceCode>
+				</program>
+			</programs>
+			<macros/>
+			<structs/>
+			<typedefs/>
+			<enums/>
+			<subranges/>
+			<interfaces/>
+		</main>
+		<target id="Mps054_XTarget_12_0" name="HolidaysOnCSV.tgt" fullXml="false">
+			<![CDATA[(* ************************************************************************** *)
+(* Project      : SFW168J000                                                  *)
+(* Programmer   : Massimo Piovera                                             *)
+(* Date         : 02/10/2015                                                  *)
+(* ************************************************************************** *)
+(* Alias "ELSIST XTarget 12.0"                                                *)
+(* -------------------------------------------------------------------------- *)
+
+(* ************************************************************************** *)
+(* VARIABLES                                                                  *)
+(* ************************************************************************** *)
+
+VAR_GLOBAL
+
+    {G:"System variables"}
+    SysVR               AT %MB0.0 : ARRAY[0..767] OF BYTE;      {DE:"System read only variables"}
+    SysClock100         AT %MB0.0 : BOOL;                       {DE:"System clock 100 mS"}
+    SysClock1000        AT %MB0.1 : BOOL;                       {DE:"System clock 1000 mS"}
+    SysBackupEnd        AT %MB0.2 : BOOL;                       {DE:"System backup end"}
+    SysRestoreFault     AT %MB0.3 : BOOL;                       {DE:"System restore fault"}
+    SysPLCInRun         AT %MB0.4 : BOOL;                       {DE:"System PLC is running"}
+    SysFirstLoop        AT %MB0.5 : BOOL;                       {DE:"System first execution loop"}
+    SysLLabCn           AT %MB0.6 : BOOL;                       {DE:"LogicLab connected to the system"}
+    SysIsDST            AT %MB0.7 : BOOL;                       {DE:"Is daylight saving time"}
+    SysDTSet            AT %MB0.8 : BOOL;                       {DE:"Date/Time set"}
+    SysUVSet            AT %MB0.9 : BOOL;                       {DE:"User variables set"}
+    SysAlwaysOff        AT %MB0.10 : BOOL;                      {DE:"Always off"}
+    SysAlwaysOn         AT %MB0.11 : BOOL;                      {DE:"Always on"}
+    SysFFBUspt          AT %MB0.12 : BOOL;                      {DE:"Function or FB unsupported"}
+    SysFFBPrt           AT %MB0.13 : BOOL;                      {DE:"Function or FB protected"}
+    SysCfgChanged       AT %MB0.14 : BOOL;                      {DE:"System configuration changed"}
+
+    SysActTaskID        AT %MB0.64 : USINT;                     {DE:"System active task ID"}
+    SysErActTaskID      AT %MB0.65 : USINT;                     {DE:"System task ID in error"}
+
+    SysModulesReady     AT %MB0.128 : WORD;                     {DE:"Modules connected to Sline bus (bit index)"}
+    SysApllVMajor       AT %MB0.130 : UINT;                     {DE:"Application major version number"}
+    SysApllVMinor       AT %MB0.132 : UINT;                     {DE:"Application minor version number"}
+
+    SysTBackLpTm        AT %MB0.256 : UDINT;                    {DE:"System Back task loop time (uS)"}
+    SysTBackLpTmMin     AT %MB0.260 : UDINT;                    {DE:"System Back task loop time min (uS)"}
+    SysTBackLpTmMax     AT %MB0.264 : UDINT;                    {DE:"System Back task loop time max (uS)"}
+
+    SysTBootExTm        AT %MB0.268 : UDINT;                    {DE:"System Boot task execution time (uS)"}
+    SysTBootExTmMin     AT %MB0.272 : UDINT;                    {DE:"System Boot task execution time min (uS)"}
+    SysTBootExTmMax     AT %MB0.276 : UDINT;                    {DE:"System Boot task execution time max (uS)"}
+
+    SysTFastExTm        AT %MB0.280 : UDINT;                    {DE:"System Fast task execution time (uS)"}
+    SysTFastExTmMin     AT %MB0.284 : UDINT;                    {DE:"System Fast task execution time min (uS)"}
+    SysTFastExTmMax     AT %MB0.288 : UDINT;                    {DE:"System Fast task execution time max (uS)"}
+
+    SysTSlowExTm        AT %MB0.292 : UDINT;                    {DE:"System Slow task execution time (uS)"}
+    SysTSlowExTmMin     AT %MB0.296 : UDINT;                    {DE:"System Slow task execution time min (uS)"}
+    SysTSlowExTmMax     AT %MB0.300 : UDINT;                    {DE:"System Slow task execution time max (uS)"}
+
+    SysTBackExTm        AT %MB0.304 : UDINT;                    {DE:"System Back task execution time (uS)"}
+    SysTBackExTmMin     AT %MB0.308 : UDINT;                    {DE:"System Back task execution time min (uS)"}
+    SysTBackExTmMax     AT %MB0.312 : UDINT;                    {DE:"System Back task execution time max (uS)"}
+
+    SysStartTime        AT %MB0.316 : UDINT;                    {DE:"PLC run since Date/Time [Epoch time]"}
+    SysTime             AT %MB0.320 : UDINT;                    {DE:"System time [mS]"}
+    SysTFastLpTm        AT %MB0.324 : UDINT;                    {DE:"System Fast task loop time (uS)"}
+    SysTSlowLpTm        AT %MB0.328 : UDINT;                    {DE:"System Slow task loop time (uS)"}
+
+    SysApplID           AT %MB0.332 : UDINT;                    {DE:"Application ID"}
+    SysMfcCode          AT %MB0.336 : UDINT;                    {DE:"Manufacturer code"}
+    SysCustomerCode     AT %MB0.340 : UDINT;                    {DE:"Customer code"}
+    SysErCode           AT %MB0.344 : UDINT;                    {DE:"System error code"}
+    SysErTime           AT %MB0.348 : UDINT;                    {DE:"System error time"}
+    SysSerialNr         AT %MB0.352 : UDINT;                    {DE:"Device serial number"}
+    SysApllBTime        AT %MB0.356 : UDINT;                    {DE:"Build time (Epoch)"}
+    SysUniqueID         AT %MB0.360 : UDINT;                    {DE:"Unique ID"}
+    
+    SysPLCUpTime        AT %MB0.364 : UDINT;                    {DE:"PLC up time (S)"}
+
+    SysCode             AT %MB0.512 : STRING[10];               {DE:"Device product code"}
+    SysFVersion         AT %MB0.523 : STRING[10];               {DE:"Firmware version"}
+    SysErInfos          AT %MB0.534 : STRING[32];               {DE:"System error infos"}
+    SysApllName         AT %MB0.567 : STRING[10];               {DE:"Application name"}
+    SysUSetA            AT %MB0.578 : STRING[16];               {DE:"User setting (A)"}
+    SysUSetB            AT %MB0.595 : STRING[16];               {DE:"User setting (B)"}
+    SysUSetC            AT %MB0.612 : STRING[16];               {DE:"User setting (C)"}
+    SysUSetD            AT %MB0.629 : STRING[16];               {DE:"User setting (D)"}
+
+    {G:"System variables"}
+
+    SysVRW              AT %MB1.0 : ARRAY[0..639] OF BYTE;      {DE:"System read and write variables"}
+    SysTimeInit         AT %MB1.0 : BOOL;                       {DE:"System timing calculation init"}
+
+    SysDateTime         AT %MB1.256 : UDINT;                    {DE:"System current local date time [Epoch time]"}
+    SysLastError        AT %MB1.260 : UDINT;                    {DE:"Last error value"}
+    SysUTCDateTime      AT %MB1.264 : UDINT;                    {DE:"System current UTC date time [Epoch time]"}
+
+    SysUInfoA           AT %MB1.512 : STRING[16];               {DE:"User info (A)"}
+    SysUInfoB           AT %MB1.529 : STRING[16];               {DE:"User info (B)"}
+    SysUInfoC           AT %MB1.546 : STRING[16];               {DE:"User info (C)"}
+    SysUInfoD           AT %MB1.563 : STRING[16];               {DE:"User info (D)"}
+
+    {G:"User data"}
+    SysData             AT %MB100.0 : ARRAY[0..4095] OF BYTE;   {IO:"User data and backup"}
+    SysDataBk           AT %MB100.2048 : ARRAY[0..2047] OF BYTE;{IO:"User data backup"}
+
+    {G:"Digital inputs"}
+    SysDI00             AT %IX0.0 : ARRAY[0..31] OF BOOL;       {IO:"Logic inputs module 00"}
+    SysDI01             AT %IX1.0 : ARRAY[0..31] OF BOOL;       {IO:"Logic inputs module 01"}
+    SysDI02             AT %IX2.0 : ARRAY[0..31] OF BOOL;       {IO:"Logic inputs module 02"}
+    SysDI03             AT %IX3.0 : ARRAY[0..31] OF BOOL;       {IO:"Logic inputs module 03"}
+    SysDI04             AT %IX4.0 : ARRAY[0..31] OF BOOL;       {IO:"Logic inputs module 04"}
+    SysDI05             AT %IX5.0 : ARRAY[0..31] OF BOOL;       {IO:"Logic inputs module 05"}
+    SysDI06             AT %IX6.0 : ARRAY[0..31] OF BOOL;       {IO:"Logic inputs module 06"}
+    SysDI07             AT %IX7.0 : ARRAY[0..31] OF BOOL;       {IO:"Logic inputs module 07"}
+    SysDI08             AT %IX8.0 : ARRAY[0..31] OF BOOL;       {IO:"Logic inputs module 08"}
+    SysDI09             AT %IX9.0 : ARRAY[0..31] OF BOOL;       {IO:"Logic inputs module 09"}
+    SysDI10             AT %IX10.0 : ARRAY[0..31] OF BOOL;      {IO:"Logic inputs module 10"}
+    SysDI11             AT %IX11.0 : ARRAY[0..31] OF BOOL;      {IO:"Logic inputs module 11"}
+    SysDI12             AT %IX12.0 : ARRAY[0..31] OF BOOL;      {IO:"Logic inputs module 12"}
+    SysDI13             AT %IX13.0 : ARRAY[0..31] OF BOOL;      {IO:"Logic inputs module 13"}
+    SysDI14             AT %IX14.0 : ARRAY[0..31] OF BOOL;      {IO:"Logic inputs module 14"}
+    SysDI15             AT %IX15.0 : ARRAY[0..31] OF BOOL;      {IO:"Logic inputs module 15"}
+
+    SysCPUDI            AT %IX255.0 : ARRAY[0..31] OF BOOL;     {IO:"Logic inputs CPU"}
+
+    {G:"Digital outputs"}
+    SysDO00             AT %QX0.0 : ARRAY[0..31] OF BOOL;       {IO:"Logic outputs module 00"}
+    SysDO01             AT %QX1.0 : ARRAY[0..31] OF BOOL;       {IO:"Logic outputs module 01"}
+    SysDO02             AT %QX2.0 : ARRAY[0..31] OF BOOL;       {IO:"Logic outputs module 02"}
+    SysDO03             AT %QX3.0 : ARRAY[0..31] OF BOOL;       {IO:"Logic outputs module 03"}
+    SysDO04             AT %QX4.0 : ARRAY[0..31] OF BOOL;       {IO:"Logic outputs module 04"}
+    SysDO05             AT %QX5.0 : ARRAY[0..31] OF BOOL;       {IO:"Logic outputs module 05"}
+    SysDO06             AT %QX6.0 : ARRAY[0..31] OF BOOL;       {IO:"Logic outputs module 06"}
+    SysDO07             AT %QX7.0 : ARRAY[0..31] OF BOOL;       {IO:"Logic outputs module 07"}
+    SysDO08             AT %QX8.0 : ARRAY[0..31] OF BOOL;       {IO:"Logic outputs module 08"}
+    SysDO09             AT %QX9.0 : ARRAY[0..31] OF BOOL;       {IO:"Logic outputs module 09"}
+    SysDO10             AT %QX10.0 : ARRAY[0..31] OF BOOL;      {IO:"Logic outputs module 10"}
+    SysDO11             AT %QX11.0 : ARRAY[0..31] OF BOOL;      {IO:"Logic outputs module 11"}
+    SysDO12             AT %QX12.0 : ARRAY[0..31] OF BOOL;      {IO:"Logic outputs module 12"}
+    SysDO13             AT %QX13.0 : ARRAY[0..31] OF BOOL;      {IO:"Logic outputs module 13"}
+    SysDO14             AT %QX14.0 : ARRAY[0..31] OF BOOL;      {IO:"Logic outputs module 14"}
+    SysDO15             AT %QX15.0 : ARRAY[0..31] OF BOOL;      {IO:"Logic outputs module 15"}
+
+    SysCPUDO            AT %QX255.0 : ARRAY[0..31] OF BOOL;     {IO:"Logic outputs CPU"}
+END_VAR
+
+(* ########################################################################## *)
+(* SYSTEM DATA TYPES DEFINITIONS AND FUNCTIONS                                *)
+(* ########################################################################## *)
+
+(* -------------------------------------------------------------------------- *)
+(* Task ID definition                                                         *)
+(* -------------------------------------------------------------------------- *)
+
+VAR_GLOBAL CONSTANT
+    {G:"Task ID definition"}
+
+    ID_TASK_BOOT : USINT := 0;  {DE:"Boot task ID"}
+    ID_TASK_BACK : USINT := 1;  {DE:"Back task ID"}
+    ID_TASK_SLOW : USINT := 2;  {DE:"Slow task ID"}
+    ID_TASK_FAST : USINT := 3;  {DE:"Fast task ID"}
+END_VAR
+
+(* -------------------------------------------------------------------------- *)
+(* "SysMAlloc" function                                                       *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysMAlloc : @USINT
+
+    {DE:"Allocate a memory buffer"}
+
+    VAR_INPUT
+        Size : UDINT;           {DE:"Memory size"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysRMAlloc" function                                                      *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysRMAlloc : BOOL
+
+    {DE:"Allocate a relocatable memory buffer"}
+
+    VAR_INPUT
+        Size    : UDINT;           {DE:"Memory size"}
+        DataPtr : @UDINT;          {DE:"Memory buffer address"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysRMFree" function                                                       *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysRMFree : BOOL
+
+    {DE:"Disallocate a relocatable memory buffer"}
+
+    VAR_INPUT
+        DataPtr : @UDINT;          {DE:"Memory buffer address"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysGetRandom" function                                                    *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysGetRandom : REAL
+
+    {DE:"Get random number"}
+
+    VAR_INPUT
+        Cmd : BOOL;             {DE:"Command"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysGetSysTime" function                                                   *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysGetSysTime : UDINT
+
+    {DE:"Get uSec system time"}
+
+    VAR_INPUT
+        Cmd : BOOL;             {DE:"Command"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysSetTaskLpTime" function                                                *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysSetTaskLpTime : BOOL
+
+    {DE:"Set the task loop time"}
+
+    VAR_INPUT
+        TaskID : USINT;         {DE:"Task ID"}
+        Time   : UDINT;         {DE:"Task time [uSec]"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysSetLastError" function                                                 *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysSetLastError : BOOL
+
+    { HIDDEN:ON }
+    {DE:"Set the last error"}
+
+    VAR_INPUT
+        Error    : UDINT;       {DE:"Error number"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysGetLastError" function                                                 *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysGetLastError : UDINT
+
+    {DE:"Get the last error"}
+
+    VAR_INPUT
+        Cmd : BOOL;             {DE:"Command"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysGetEndianness" function                                                *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysGetEndianness : BOOL
+
+    {DE:"Get the endianness"}
+
+    VAR_INPUT
+        Cmd : BOOL;             {DE:"Command"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* ########################################################################## *)
+(* TERMIO DATA TYPES DEFINITIONS AND FUNCTIONS                                *)
+(* ########################################################################## *)
+
+(* -------------------------------------------------------------------------- *)
+(* TermIO definition                                                          *)
+(* -------------------------------------------------------------------------- *)
+
+VAR_GLOBAL CONSTANT
+
+    {G:"TermIO definition"}
+
+    NULL : FILEP := 0;  {DE:"NULL pointer"}
+    EOF : INT := -1;    {DE:"End of file"}
+END_VAR
+
+(* -------------------------------------------------------------------------- *)
+(* FILEP definition                                                           *)
+(* -------------------------------------------------------------------------- *)
+
+TYPE FILEP : UDINT; END_TYPE
+
+(* -------------------------------------------------------------------------- *)
+(* "Sysfopen" function                                                        *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION Sysfopen : FILEP
+
+    {DE:"Open a file"}
+
+    VAR_INPUT
+        FName : STRING[20];     {DE:"File name"}
+        Mode  : STRING[4];      {DE:"Attribute"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "Sysfclose" function                                                       *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION Sysfclose : INT
+
+    {DE:"Close a file"}
+
+    VAR_INPUT
+        File : FILEP;           {DE:"File"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysFIsOpen" function                                                      *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysFIsOpen : BOOL
+
+    {DE:"Get the file open status"}
+
+    VAR_INPUT
+        File : FILEP;           {DE:"File"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "Sysfgetc" function                                                        *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION Sysfgetc : INT
+
+    {DE:"Get character from file"}
+
+    VAR_INPUT
+        File : FILEP;           {DE:"File"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "Sysfputc" function                                                        *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION Sysfputc : INT
+
+    {DE:"Put character to file"}
+
+    VAR_INPUT
+        Ch   : INT;             {DE:"Character"}
+        File : FILEP;           {DE:"File"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "Sysfread" function                                                        *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION Sysfread : INT
+
+    {DE:"Read data from file"}
+
+    VAR_INPUT
+        Buf  : @USINT;          {DE:"Buffer filled with read data"}
+        Size : INT;             {DE:"Bytes per data block"}
+        Count: INT;             {DE:"Nr of data blocks"}
+        File : FILEP;           {DE:"File"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "Sysfwrite" function                                                       *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION Sysfwrite : INT
+
+    {DE:"Write data to file"}
+
+    VAR_INPUT
+        Buf  : @USINT;          {DE:"Buffer of data to write"}
+        Size : INT;             {DE:"Bytes per data block"}
+        Count: INT;             {DE:"Nr of data blocks"}
+        File : FILEP;           {DE:"File"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysFGetIChars" function                                                   *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysFGetIChars : INT
+
+    {DE:"Get available input chars"}
+
+    VAR_INPUT
+        File : FILEP;           {DE:"File"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysGetIChars" function                                                    *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysGetIChars : INT
+
+    {DE:"Get available input chars"}
+
+    VAR_INPUT
+        File : FILEP;           {DE:"File"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysFGetOSpace" function                                                   *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysFGetOSpace : INT
+
+    {DE:"Get available output space"}
+
+    VAR_INPUT
+        File : FILEP;           {DE:"File"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysGetOSpace" function                                                    *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysGetOSpace : INT
+
+    {DE:"Get available output space"}
+
+    VAR_INPUT
+        File : FILEP;           {DE:"File"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysFIBfClear" function                                                    *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysFIBfClear : BOOL
+
+    {DE:"Clear input buffer"}
+
+    VAR_INPUT
+        File : FILEP;           {DE:"File"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysFOBfClear" function                                                    *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysFOBfClear : BOOL
+
+    {DE:"Clear output buffer"}
+
+    VAR_INPUT
+        File : FILEP;           {DE:"File"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysFOBfFlush" function                                                    *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysFOBfFlush : BOOL
+
+    {DE:"Flush output buffer"}
+
+    VAR_INPUT
+        File : FILEP;           {DE:"File"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysFGetIBfSize" function                                                  *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysFGetIBfSize : UDINT
+
+    {DE:"Get input buffer size"}
+
+    VAR_INPUT
+        File : FILEP;           {DE:"File"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysGetRxBSize" function                                                   *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysGetRxBSize : UDINT
+
+    {DE:"Get input buffer size"}
+
+    VAR_INPUT
+        File : FILEP;           {DE:"File"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysFGetOBfSize" function                                                  *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysFGetOBfSize : UDINT
+
+    {DE:"Get output buffer size"}
+
+    VAR_INPUT
+        File : FILEP;           {DE:"File"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysGetTxBSize" function                                                   *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysGetTxBSize : UDINT
+
+    {DE:"Get Tx buffer size"}
+
+    VAR_INPUT
+        File : FILEP;           {DE:"File"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* ########################################################################## *)
+(* FILE SYSTEM DATA TYPES DEFINITIONS AND FUNCTIONS                           *)
+(* ########################################################################## *)
+
+(* -------------------------------------------------------------------------- *)
+(* File system definition                                                     *)
+(* -------------------------------------------------------------------------- *)
+
+VAR_GLOBAL CONSTANT
+    {G:"FSeek origin definition"}
+
+    ID_SEEK_SET: USINT := 0;  {DE:"Beginning of file"}
+    ID_SEEK_CUR: USINT := 1;  {DE:"Current position of the file pointer"}
+    ID_SEEK_END: USINT := 2;  {DE:"End of file"}
+END_VAR
+
+(* -------------------------------------------------------------------------- *)
+(* "Sysrename" function                                                       *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION Sysrename : BOOL
+
+    {DE:"Rename a file"}
+
+    VAR_INPUT
+        OldName : STRING[32];   {DE:"File to rename"}
+        NewName : STRING[32];   {DE:"New name"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "Sysremove" function                                                       *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION Sysremove : BOOL
+
+    {DE:"Remove a file"}
+
+    VAR_INPUT
+        Name : STRING[32];      {DE:"File to rename"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "Sysfilelength" function                                                   *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION Sysfilelength : DINT
+
+    {DE:"Returns the file length"}
+
+    VAR_INPUT
+        Name : STRING[32];      {DE:"File name"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "Sysfseek" function                                                        *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION Sysfseek : DINT
+
+    {DE:"Set the file pointer"}
+
+    VAR_INPUT
+        File : FILEP;           {DE:"File"}
+        Offset : DINT;          {DE:"Offset"}
+        Origin : INT;           {DE:"Origin"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysDirListing" function block                                             *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION_BLOCK SysDirListing
+
+    {DE:"Directory listing"}
+
+    VAR
+        Ver     : USINT := 0;   {DE:"Function block version"}
+        IVP     : UDINT;        {DE:"Internal variables pointer"}
+    END_VAR
+
+    VAR_INPUT
+        Init    : BOOL;         {DE:"Init command"}
+        Next    : BOOL;         {DE:"Next command"}
+        PathName: STRING[32];   {DE:"Directory name"}
+    END_VAR
+
+    VAR_OUTPUT
+        Found   : BOOL;         {DE:"File found"}
+        Fault   : BOOL;         {DE:"Fault"}
+        IsDir   : BOOL;         {DE:"Is directory"}
+        Size    : UDINT;        {DE:"File size"}
+        Time    : UDINT;        {DE:"File time (UTC)"}
+        FileName: STRING[16];   {DE:"File name"}
+    END_VAR
+
+    { CODE:EMBEDDED }
+
+END_FUNCTION_BLOCK
+
+(* ########################################################################## *)
+(* SERIAL DATA TYPES DEFINITIONS AND FUNCTIONS                                *)
+(* ########################################################################## *)
+
+(* -------------------------------------------------------------------------- *)
+(* SYSSERIALMODE definition                                                   *)
+(* -------------------------------------------------------------------------- *)
+
+TYPE
+    SYSSERIALMODE : STRUCT      {DE:"Serial mode"}
+        Baudrate : UDINT;       {DE:"Baudrate"}
+        Parity : STRING[1];     {DE:"Parity type"}
+        DataBits : USINT;       {DE:"Nr of data bits"}
+        StopBits : USINT;       {DE:"Nr of stop bits"}
+        DTRManagement : USINT;  {DE:"DTR management type"}
+        DTRComplement : BOOL;   {DE:"Complement the DTR signal"}
+        EchoFlush : BOOL;       {DE:"Flush the echo"}
+        DTROnTime : UINT;       {DE:"DTR On wait time"}
+        DTROffTime : UINT;      {DE:"DTR Off wait time"}
+    END_STRUCT;
+END_TYPE
+
+(* -------------------------------------------------------------------------- *)
+(* Serial DTR mode definition                                                 *)
+(* -------------------------------------------------------------------------- *)
+
+VAR_GLOBAL CONSTANT
+
+    {G:"Serial mode definition"}
+
+    DTR_OFF : USINT := 0;   {DE:"DTR off"}
+    DTR_ON : USINT := 1;    {DE:"DTR on"}
+    DTR_AUTO_WO_TIMES : USINT := 2; {DE:"DTR Auto without times"}
+    DTR_AUTO_W_TIMES : USINT := 3;  {DE:"DTR Auto with times"}
+END_VAR
+
+(* -------------------------------------------------------------------------- *)
+(* "SysGetSerialMode" function                                                *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysGetSerialMode : BOOL
+
+    {DE:"Get serial mode"}
+
+    VAR_INPUT
+        Mode : @SYSSERIALMODE;  {DE:"SYSSERIALMODE data"}
+        File : FILEP;           {DE:"File"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysSetSerialMode" function                                                *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysSetSerialMode : BOOL
+
+    {DE:"Set serial mode"}
+
+    VAR_INPUT
+        Mode : @SYSSERIALMODE;  {DE:"SYSSERIALMODE data"}
+        File : FILEP;           {DE:"File"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysGetSerialCTS" function                                                 *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysGetSerialCTS : BOOL
+
+    {DE:"Get serial CTS signal status"}
+
+    VAR_INPUT
+        File : FILEP;           {DE:"File"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysSetSerialDTR" function                                                 *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysSetSerialDTR : BOOL
+
+    {DE:"Set serial DTR signal status"}
+
+    VAR_INPUT
+        Status : BOOL;          {DE:"DTR status"}
+        File : FILEP;           {DE:"File"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysSerialPort" function block                                             *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION_BLOCK SysSerialPort
+
+    {DE:"Serial port manager"}
+
+    VAR
+        Ver     : USINT := 0;   {DE:"Function block version"}
+        IVP     : UDINT;        {DE:"Internal variables pointer"}
+    END_VAR
+
+    VAR_INPUT
+        Open    : BOOL;         {DE:"Open serial port"}
+        COM     : @USINT;       {DE:"COM port"}
+        Baudrate: UDINT;        {DE:"Baudrate"}
+        Parity  : STRING[1];    {DE:"Parity type"}
+        DataBits: USINT;        {DE:"Number of data bits"}
+        StopBits: USINT;        {DE:"Number of stop bits"}
+        DTRManagement: USINT;   {DE:"DTR management type"}
+        DTRComplement: BOOL;    {DE:"DTR signal complement"}
+        EchoFlush   : BOOL;     {DE:"Flush the echo characters"}
+        DTROnTime   : UINT;     {DE:"DTR on time"}
+        DTROffTime  : UINT;     {DE:"DTR off time"}
+        FlushTm : UINT;         {DE:"Flush time [mS]"}
+        RxSize  : UINT;         {DE:"Rx buffer data size"}
+        TxSize  : UINT;         {DE:"Tx buffer data size"}
+    END_VAR
+
+    VAR_OUTPUT
+        Opened  : BOOL;         {DE:"Serial port was opened"}
+        Fault   : BOOL;         {DE:"Fault status"}
+        File    : FILEP;        {DE:"File pointer"}
+    END_VAR
+
+    { CODE:EMBEDDED }
+
+END_FUNCTION_BLOCK
+
+(* ########################################################################## *)
+(* SCANF AND PRINTF DATA TYPES DEFINITIONS AND FUNCTIONS                      *)
+(* ########################################################################## *)
+
+(* -------------------------------------------------------------------------- *)
+(* Variable types definition                                                  *)
+(* -------------------------------------------------------------------------- *)
+
+VAR_GLOBAL CONSTANT
+    {G:"Variable types definition"}
+
+    BOOL_TYPE : USINT := 10;    {DE:"Boolean (1 bits)"}
+
+    BYTE_TYPE : USINT := 20;    {DE:"Byte (8 bits)"}
+    SINT_TYPE : USINT := 21;    {DE:"Single integer signed (8 bits)"}
+    USINT_TYPE : USINT := 22;   {DE:"Single integer unsigned (8 bits)"}
+
+    WORD_TYPE : USINT := 30;    {DE:"Word (16 bits)"}
+    INT_TYPE : USINT := 31;     {DE:"Integer signed (16 bits)"}
+    UINT_TYPE : USINT := 32;    {DE:"Integer unsigned (16 bits)"}
+
+    DWORD_TYPE : USINT := 40;   {DE:"Double word (32 bits)"}
+    DINT_TYPE : USINT := 41;    {DE:"Double integer signed (32 bits)"}
+    UDINT_TYPE : USINT := 42;   {DE:"Double integer unsigned (32 bits)"}
+    REAL_TYPE : USINT := 43;    {DE:"Floating (32 bits)"}
+
+    STRING_TYPE : USINT := 50;  {DE:"String"}
+END_VAR
+
+(* -------------------------------------------------------------------------- *)
+(* "SysVarsscanf" function                                                    *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysVarsscanf : BOOL
+
+    {DE:"Extracts values from string"}
+
+    VAR_INPUT
+        String : @USINT;        {DE:"String to scan"}
+        Format : STRING[80];    {DE:"Scan format"}
+        VarType : USINT;        {DE:"Variable type"}
+        VarAdd : UDINT;         {DE:"Variable address"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysVarfprintf" function                                                   *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysVarfprintf : INT
+
+    {DE:"Variable print to file"}
+
+    VAR_INPUT
+        File : FILEP;           {DE:"File"}
+        Format : STRING[80];    {DE:"Print format"}
+        VarType : USINT;        {DE:"Variable type"}
+        VarAdd : UDINT;         {DE:"Variable address"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysVarsnprintf" function                                                  *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysVarsnprintf : INT
+
+    {DE:"Variable print to string"}
+
+    VAR_INPUT
+        String : @USINT;        {DE:"Return string"}
+        Size : UDINT;           {DE:"Return size"}
+        Format : STRING[80];    {DE:"Print format"}
+        VarType : USINT;        {DE:"Variable type"}
+        VarAdd : UDINT;         {DE:"Variable address"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysLWVarsnprintf" function                                                *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysLWVarsnprintf : INT
+
+    {DE:"Variable print to string with append"}
+
+    VAR_INPUT
+        String : @USINT;        {DE:"Return string"}
+        Size : UDINT;           {DE:"Return size"}
+        Format : STRING[80];    {DE:"Print format"}
+        VarType : USINT;        {DE:"Variable type"}
+        VarAdd : UDINT;         {DE:"Variable address"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* ########################################################################## *)
+(* CODE FUNCTION DATA TYPES DEFINITIONS AND FUNCTIONS                         *)
+(* ########################################################################## *)
+
+(* -------------------------------------------------------------------------- *)
+(* "SysPCodeAccept" function                                                  *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysPCodeAccept : BOOL
+
+    {DE:"Accept a protection code"}
+
+    VAR_INPUT
+        Code : STRING[20];      {DE:"Code"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysIDEnabled" function                                                    *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysIDEnabled : REAL
+
+    { HIDDEN:ON }
+    {DE:"Protected ID enabled"}
+
+    VAR_INPUT
+        ID : UINT;              {DE:"ID to check"}
+        DTime : UDINT;          {DE:"Demo time"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* ########################################################################## *)
+(* I2C BUS TYPES DEFINITIONS AND FUNCTIONS                                    *)
+(* ########################################################################## *)
+
+(* -------------------------------------------------------------------------- *)
+(* "SysI2CWrRd" function                                                      *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysI2CWrRd : BOOL
+
+    {DE:"Write and read on I2C bus"}
+
+    VAR_INPUT
+        Address : USINT;        {DE:"I2c address"}
+        WrBytes : USINT;        {DE:"Bytes to write"}
+        WrBuffer: @USINT;       {DE:"Write data buffer"}
+        RdBytes : USINT;        {DE:"Bytes to read"}
+        RdBuffer: @USINT;       {DE:"Read data buffer"}
+     END_VAR
+
+    { CODE:EMBEDDED }
+
+END_FUNCTION
+
+(* ########################################################################## *)
+(* CAN DATA TYPES DEFINITIONS AND FUNCTIONS                                   *)
+(* ########################################################################## *)
+
+(* -------------------------------------------------------------------------- *)
+(* CAN bit rate definition                                                    *)
+(* -------------------------------------------------------------------------- *)
+
+VAR_GLOBAL CONSTANT
+
+    {G:"CAN bit rate definition"}
+
+    CAN_50KBIT : USINT := 0;    {DE:"Bit rate 50 Khz"}
+    CAN_100KBIT : USINT := 1;   {DE:"Bit rate 100 Khz"}
+    CAN_125KBIT : USINT := 2;   {DE:"Bit rate 125 Khz"}
+    CAN_250KBIT : USINT := 3;   {DE:"Bit rate 250 Khz"}
+    CAN_500KBIT : USINT := 4;   {DE:"Bit rate 500 Khz"}
+    CAN_1MBIT : USINT := 5;     {DE:"Bit rate 1 Mhz"}
+END_VAR
+
+(* -------------------------------------------------------------------------- *)
+(* SYSCANMESSAGE definition                                                   *)
+(* -------------------------------------------------------------------------- *)
+
+TYPE
+    SYSCANMESSAGE : STRUCT      {DE:"CAN message"}
+        RmReq : BOOL;           {DE:"FALSE:Data frame, TRUE:Remote request"}
+        Length : USINT;         {DE:"Data length"}
+        MsgID : UDINT;          {DE:"Message ID (FF:Bit 31) (11 or 29 Bit)"}
+        Data : ARRAY[0..7] OF USINT;    {DE:"Message data"}
+    END_STRUCT;
+END_TYPE
+
+(* -------------------------------------------------------------------------- *)
+(* "SysCANSetMode" function                                                   *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysCANSetMode : BOOL
+
+    {DE:"Sets the CAN controller mode"}
+
+    VAR_INPUT
+        BitRate : USINT;        {DE:"Bit rate"}
+        Filter : UDINT;         {DE:"Acceptance filter"}
+        Mask : UDINT;           {DE:"Acceptance mask"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysIsCANRxTxAv" function                                                  *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysIsCANRxTxAv : BOOL
+
+    {DE:"Check if CAN Rx/Tx is available"}
+
+    VAR_INPUT
+        Select : BOOL;         {DE:"eFALSE:Rx message selection, eTRUE:Tx space selection"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysCANRxMsg" function                                                     *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysCANRxMsg : BOOL
+
+    {DE:"Receive a CAN message"}
+
+    VAR_INPUT
+        Mask : UDINT;           {DE:"Message ID mask"}
+        ID : UDINT;             {DE:"Message ID (FF:Bit 31) (11 or 29 Bit)"}
+        Msg : @SYSCANMESSAGE;   {DE:"Message pointer"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysCANTxMsg" function                                                     *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysCANTxMsg : BOOL
+
+    {DE:"Send a CAN message"}
+
+    VAR_INPUT
+        Msg : @SYSCANMESSAGE;   {DE:"Message pointer"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* ########################################################################## *)
+(* IEC EMBEDDED SUPPORT FUNCTION BLOCKS                                       *)
+(* ########################################################################## *)
+
+(* ************************************************************************** *)
+(* DATE AND TIME FUNCTION BLOCKS                                              *)
+(* ************************************************************************** *)
+
+(* -------------------------------------------------------------------------- *)
+(* "SysETimeToDate" function block                                            *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION_BLOCK SysETimeToDate
+
+    {DE:"Epoch time to date conversion"}
+
+    VAR
+        Ver     : USINT := 0;   {DE:"Function block version"}
+        IVP     : UDINT;        {DE:"Internal variables pointer"}
+    END_VAR
+
+    VAR_INPUT
+        EpochTime: UDINT;       {DE:"Epoch time"}
+    END_VAR
+
+    VAR_OUTPUT
+        Done   : BOOL;          {DE:"Conversion done"}
+        Fault  : BOOL;          {DE:"Conversion fault"}
+        Year   : UINT;          {DE:"Year"}
+        Month  : USINT;         {DE:"Month"}
+        Day    : USINT;         {DE:"Day"}
+        WeekDay: USINT;         {DE:"WeekDay"}
+        Hour   : USINT;         {DE:"Hour"}
+        Minute : USINT;         {DE:"Minute"}
+        Second : USINT;         {DE:"Second"}
+    END_VAR
+
+    { CODE:EMBEDDED }
+
+END_FUNCTION_BLOCK
+
+(* -------------------------------------------------------------------------- *)
+(* "SysDateToETime" function block                                            *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION_BLOCK SysDateToETime
+
+    {DE:"Date to epoch time conversion"}
+
+    VAR
+        Ver     : USINT := 0;   {DE:"Function block version"}
+        IVP     : UDINT;        {DE:"Internal variables pointer"}
+    END_VAR
+
+    VAR_INPUT
+        Year   : UINT;          {DE:"Year"}
+        Month  : USINT;         {DE:"Month"}
+        Day    : USINT;         {DE:"Day"}
+        Hour   : USINT;         {DE:"Hour"}
+        Minute : USINT;         {DE:"Minute"}
+        Second : USINT;         {DE:"Second"}
+    END_VAR
+
+    VAR_OUTPUT
+        Done   : BOOL;          {DE:"Conversion done"}
+        Fault  : BOOL;          {DE:"Conversion fault"}
+        EpochTime: UDINT;       {DE:"Epoch time"}
+    END_VAR
+
+    { CODE:EMBEDDED }
+
+END_FUNCTION_BLOCK
+
+(* -------------------------------------------------------------------------- *)
+(* "SysGetUTCDateTime" function                                               *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysGetUTCDateTime : UDINT
+
+    {DE:"Get the system UTC date time"}
+
+    VAR_INPUT
+        Cmd : BOOL;             {DE:"Command"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysSetUTCDateTime" function                                               *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysSetUTCDateTime : BOOL
+
+    {DE:"Set the system UTC date time"}
+
+    VAR_INPUT
+        UTCDateTime : UDINT;             {DE:"UTC date and time to set"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysTimeZoneAdj" function                                                  *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysTimeZoneAdj : UDINT
+
+    {DE:"Adjust the UTC date time with time zone and daylight saving time"}
+
+    VAR_INPUT
+        UTCDateTime : UDINT;             {DE:"UTC date and time to adjust"}
+        TimeZone    : SINT;              {DE:"Difference to Greenwich time (GMT) (H)"}
+        DaylightZone: USINT;             {DE:"Daylight saving zone (0=None; 1=Europe; 2=USA"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* ************************************************************************** *)
+(* UTILITIES                                                                  *)
+(* ************************************************************************** *)
+
+(* -------------------------------------------------------------------------- *)
+(* "Sysmemset" function                                                       *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION Sysmemset : @USINT
+
+    {DE:"Fill a memory area with a character value"}
+
+    VAR_INPUT
+        Buff    : @USINT;       {DE:"Memory area"}
+        Ch      : INT;          {DE:"Character to set"}
+        Size    : UDINT;        {DE:"Number of bytes to set"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "Sysmemmove" function                                                      *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION Sysmemmove : @USINT
+
+    {DE:"Copy bytes between two memory areas"}
+
+    VAR_INPUT
+        Dest    : @USINT;       {DE:"Destination area"}
+        Src     : @USINT;       {DE:"Source area"}
+        Size    : UDINT;        {DE:"Number of bytes to copy"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+VAR_GLOBAL CONSTANT
+
+    {G:"Find mode"}
+
+    FIND_DEFAULT        : USINT := 16#00;  {DE:"Default find"}
+    FIND_FROM_END       : USINT := 16#01;  {DE:"Find from end"}
+    FIND_NO_CASE        : USINT := 16#02;  {DE:"Find case insentive"}
+    FIND_GET_END        : USINT := 16#04;  {DE:"Return a pointer to end of found"}
+END_VAR
+
+(* -------------------------------------------------------------------------- *)
+(* "SysMemFind" function                                                      *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysMemFind : @USINT
+
+    {DE:"Locate a memory area inside another"}
+
+    VAR_INPUT
+        Haystack: @USINT;       {DE:"Memory area where to find"}
+        HSize   : UDINT;        {DE:"Haystack area size"}
+        Needle  : @USINT;       {DE:"Memory area to find"}
+        NSize   : UDINT;        {DE:"Needle area size"}
+        Mode    : USINT;        {DE:"Find mode"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "Systolower" function                                                      *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION Systolower : INT
+
+    {DE:"Convert a character to lower case"}
+
+    VAR_INPUT
+        Ch      : INT;          {DE:"Character to convert"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "Systoupper" function                                                      *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION Systoupper : INT
+
+    {DE:"Convert a character to upper case"}
+
+    VAR_INPUT
+        Ch      : INT;          {DE:"Character to convert"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "Sysstrlen" function                                                       *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION Sysstrlen : UDINT
+
+    {DE:"Calculate length of string"}
+
+    VAR_INPUT
+        Str     : @USINT;       {DE:"String"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysStrFind" function                                                      *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysStrFind : @USINT
+
+    {DE:"Locate a substring inside a string"}
+
+    VAR_INPUT
+        Haystack: @USINT;       {DE:"String where to find"}
+        Needle  : @USINT;       {DE:"String to find"}
+        Mode    : USINT;        {DE:"Find mode"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+VAR_GLOBAL CONSTANT
+
+    {G:"OS variable ID"}
+
+    OSID_CFG_WRITE          : UDINT := 1;   {DE:"Save configuration"}
+    
+    OSID_ETH0_IP            : UDINT := 100; {DE:"Eth0 IP address"}
+    OSID_ETH0_MASK          : UDINT := 101; {DE:"Eth0 network mask"}
+    OSID_ETH0_GATEWAY       : UDINT := 102; {DE:"Eth0 gateway"}
+    OSID_ETH0_MAC           : UDINT := 103; {DE:"Eth0 MAC address"}
+    OSID_ETH0_DNS_PRIM      : UDINT := 104; {DE:"Eth0 primary DNS"}
+    OSID_ETH0_DNS_SEC       : UDINT := 105; {DE:"Eth0 secondary DNS"}
+    
+    OSID_ETH1_IP            : UDINT := 200; {DE:"Eth1 IP address"}
+    OSID_ETH1_MASK          : UDINT := 201; {DE:"Eth1 network mask"}
+    OSID_ETH1_GATEWAY       : UDINT := 202; {DE:"Eth1 gateway"}
+    OSID_ETH1_MAC           : UDINT := 203; {DE:"Eth1 MAC address"}
+    OSID_ETH1_LEASED_MAC    : UDINT := 204; {DE:"Eth1 leased MAC address"}
+END_VAR
+
+(* -------------------------------------------------------------------------- *)
+(* "SysOSIDValue" function                                                    *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysOSIDValue : BOOL
+
+    {DE:"Get or set an operative system variable"}
+
+    VAR_INPUT
+        Wr      : BOOL;         {DE:"Write command"}
+        OSID    : UDINT;        {DE:"Variable ID"}
+        Val     : @USINT;       {DE:"Variable pointer"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysGetCrc" function block                                                 *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION_BLOCK SysGetCrc
+
+    {DE:"Crc calculation"}
+
+    VAR
+        Ver     : USINT := 0;   {DE:"Function block version"}
+        IVP     : UDINT;        {DE:"Internal variables pointer"}
+    END_VAR
+
+    VAR_INPUT
+        Buf   : @USINT;         {DE:"Buffer filled with read data"}
+        ByteNr: UINT;           {DE:"Number of byte to calculate"}
+        CrcIni: UINT;           {DE:"Crc init value"}
+    END_VAR
+
+    VAR_OUTPUT
+        Crc : UINT;             {DE:"Calculated Crc"}
+    END_VAR
+
+    { CODE:EMBEDDED }
+
+END_FUNCTION_BLOCK
+
+(* ************************************************************************** *)
+(* CHECK CALCULATION                                                          *)
+(* ************************************************************************** *)
+
+(* -------------------------------------------------------------------------- *)
+(* Check mode definition                                                      *)
+(* -------------------------------------------------------------------------- *)
+
+VAR_GLOBAL CONSTANT
+
+    {G:"Check type definitions"}
+
+    CRC_16_MODBUS   : USINT := 1;   {DE:"Modbus RTU CRC"}
+    LRC_ISO1155     : USINT := 2;   {DE:"ISO1155 LRC"}
+END_VAR
+
+(* -------------------------------------------------------------------------- *)
+(* "SysGetCheck" function                                                     *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysGetCheck : UDINT
+
+    {DE:"Check calculation"}
+
+    VAR_INPUT
+        Buf     : @USINT;       {DE:"Buffer filled with data"}
+        ByteNr  : UDINT;        {DE:"Number of bytes to calculate"}
+        Init    : UDINT;        {DE:"Init value"}
+        Type    : USINT;        {DE:"Check type"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* ************************************************************************** *)
+(* PERIPHERAL MANAGEMENT FUNCTION BLOCKS                                      *)
+(* ************************************************************************** *)
+
+(* -------------------------------------------------------------------------- *)
+(* "SysPhrInfos" function                                                     *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysPhrInfos : BOOL
+
+    {DE:"Read peripheral module infos"}
+
+    VAR_INPUT
+        Module: USINT;          {DE:"Module address"}
+        InfoID: USINT;          {DE:"Info ID"}
+        Info : STRING[10];      {DE:"Info report"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysPhrVRd" function                                                       *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysPhrVRd : BOOL
+
+    {DE:"Read variable from peripheral bus"}
+
+    VAR_INPUT
+        Module: USINT;          {DE:"Module address"}
+        RdAdd: UINT;            {DE:"Read address"}
+        VarType: USINT;         {DE:"Variable type"}
+        VarAdd: UDINT;          {DE:"Variable address"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysPhrVWr" function                                                       *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysPhrVWr : BOOL
+
+    {DE:"Write variable to peripheral bus"}
+
+    VAR_INPUT
+        Module: USINT;          {DE:"Module address"}
+        WrAdd: UINT;            {DE:"Write address"}
+        VarType: USINT;         {DE:"Variable type"}
+        VarAdd: UDINT;          {DE:"Variable address"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysGetPhrDI" function block                                               *)
+(* -------------------------------------------------------------------------- *)
+
+VAR_GLOBAL CONSTANT
+
+    {G:"Digital input mode"}
+
+    DI_8_LL : USINT := 1;       {DE:"Read 0-7 input mode"}
+    DI_8_L  : USINT := 2;       {DE:"Read 8-15 input mode"}
+    DI_8_M  : USINT := 3;       {DE:"Read 16-23 input mode"}
+    DI_8_MM : USINT := 4;       {DE:"Read 24-31 input mode"}
+
+    DI_16_L : USINT := 5;       {DE:"Read 0-15 input mode"}
+    DI_16_M : USINT := 6;       {DE:"Read 16-31 input mode"}
+
+    DI_32   : USINT := 7;       {DE:"Read 32 input mode"}
+    
+    DI_I_8_LL : USINT := 11;    {DE:"Read 0-7 immediate input mode"}
+    DI_I_8_L  : USINT := 12;    {DE:"Read 8-15 immediate input mode"}
+    DI_I_8_M  : USINT := 13;    {DE:"Read 16-23 immediate input mode"}
+    DI_I_8_MM : USINT := 14;    {DE:"Read 24-31 immediate input mode"}
+
+    DI_I_16_L : USINT := 15;    {DE:"Read 0-15 immediate input mode"}
+    DI_I_16_M : USINT := 16;    {DE:"Read 16-31 immediate input mode"}
+
+    DI_I_32   : USINT := 17;    {DE:"Read 32 immediate input mode"}
+
+END_VAR
+
+FUNCTION_BLOCK SysGetPhrDI
+
+    {DE:"Get the peripheral digital inputs"}
+
+    VAR
+        Ver     : USINT := 0;   {DE:"Function block version"}
+        IVP     : UDINT;        {DE:"Internal variables pointer"}
+    END_VAR
+
+    VAR_INPUT
+        Address : USINT;        {DE:"Module address"}
+        Mode    : USINT;        {DE:"Mode"}
+    END_VAR
+
+    VAR_OUTPUT
+        Done    : BOOL;         {DE:"Function done"}
+        Fault   : BOOL;         {DE:"Function fault"}
+        Value   : DWORD;        {DE:"Digital input value"}
+    END_VAR
+
+    { CODE:EMBEDDED }
+
+END_FUNCTION_BLOCK
+
+(* -------------------------------------------------------------------------- *)
+(* "SysSetPhrDO" function block                                               *)
+(* -------------------------------------------------------------------------- *)
+
+VAR_GLOBAL CONSTANT
+
+    {G:"Digital output mode"}
+
+    DO_8_LL : USINT := 1;       {DE:"Write 0-7 output mode"}
+    DO_8_L  : USINT := 2;       {DE:"Write 8-15 output mode"}
+    DO_8_M  : USINT := 3;       {DE:"Write 16-23 output mode"}
+    DO_8_MM : USINT := 4;       {DE:"Write 24-31 output mode"}
+
+    DO_16_L : USINT := 5;       {DE:"Write 0-15 output mode"}
+    DO_16_M : USINT := 6;       {DE:"Write 16-31 output mode"}
+
+    DO_32   : USINT := 7;       {DE:"Write 32 output mode"}
+END_VAR
+
+FUNCTION_BLOCK SysSetPhrDO
+
+    {DE:"Set the peripheral digital outputs"}
+
+    VAR
+        Ver     : USINT := 1;   {DE:"Function block version"}
+        IVP     : UDINT;        {DE:"Internal variables pointer"}
+    END_VAR
+
+    VAR_INPUT
+        Address : USINT;        {DE:"Module address"}
+        Mode    : USINT;        {DE:"Mode"}
+        Value   : DWORD;        {DE:"Digital output value"}
+        Mask    : DWORD;        {DE:"Memory mapped output mask"}
+    END_VAR
+
+    VAR_OUTPUT
+        Done    : BOOL;         {DE:"Function done"}
+        Fault   : BOOL;         {DE:"Function fault"}
+    END_VAR
+
+    { CODE:EMBEDDED }
+
+END_FUNCTION_BLOCK
+
+(* -------------------------------------------------------------------------- *)
+(* "SysGetAnInp" function block                                               *)
+(* -------------------------------------------------------------------------- *)
+
+VAR_GLOBAL CONSTANT
+
+    {G:"Analog to digital mode"}
+
+    AD_IDLE              : USINT := 16#00;  {DE:"Idle mode"}
+    AD_VOLT_0_125_COMMON : USINT := 16#01;  {DE:"0-1.25V common mode"}
+    AD_VOLT_0_10_COMMON  : USINT := 16#02;  {DE:"0-10V common mode"}
+    AD_CURR_0_20_COMMON  : USINT := 16#03;  {DE:"0-20mA common mode"}
+    AD_CURR_4_20_COMMON  : USINT := 16#04;  {DE:"4-20mA common mode"}
+    AD_VOLT_0_1_COMMON   : USINT := 16#05;  {DE:"0-1V common mode"}
+    AD_CURR_0_20_DIFFER  : USINT := 16#06;  {DE:"0-20mA differential mode"}
+    AD_VOLT_0_1_DIFFER   : USINT := 16#07;  {DE:"0-1V differential mode"}
+    AD_VOLT_0_125_DIFFER : USINT := 16#08;  {DE:"0-1.25V differential mode"}
+    AD_VOLT_0_10_DIFFER  : USINT := 16#09;  {DE:"0-10V differential mode"}
+    AD_PT100_DIFFER      : USINT := 16#0A;  {DE:"Pt100 differential mode"}
+    AD_PT1000_DIFFER     : USINT := 16#0B;  {DE:"Pt1000 differential mode"}
+    AD_NI1000_DIFFER     : USINT := 16#0C;  {DE:"Ni1000 differential mode"}
+    AD_CURR_4_20_DIFFER  : USINT := 16#0D;  {DE:"4-20mA differential mode"}
+    AD_PT100_DIN_43760   : USINT := 16#20;  {DE:"Pt100 DIN_43760 standard"}
+    AD_PT100_AMERICAN    : USINT := 16#21;  {DE:"Pt100 American standard"}
+    AD_PT100_ITS_90      : USINT := 16#22;  {DE:"Pt100 ITS-90 standard"}
+    AD_PT100_IEC_60751   : USINT := 16#23;  {DE:"Pt100 IEC-60751 standard"}
+    AD_PT1000_DIN_43760  : USINT := 16#28;  {DE:"Pt1000 DIN_43760 standard"}
+    AD_PT1000_AMERICAN   : USINT := 16#29;  {DE:"Pt1000 American standard"}
+    AD_PT1000_ITS_90     : USINT := 16#2A;  {DE:"Pt1000 ITS-90 standard"}
+    AD_PT1000_IEC_60751  : USINT := 16#2B;  {DE:"Pt1000 IEC-60751 standard"}
+    AD_NI1000_DIN_43760  : USINT := 16#30;  {DE:"Ni1000 DIN_43760 standard"}
+    AD_THERMOCOUPLE_B    : USINT := 16#40;  {DE:"Thermocouple B type"}
+    AD_THERMOCOUPLE_E    : USINT := 16#41;  {DE:"Thermocouple E type"}
+    AD_THERMOCOUPLE_J    : USINT := 16#42;  {DE:"Thermocouple J type"}
+    AD_THERMOCOUPLE_K    : USINT := 16#43;  {DE:"Thermocouple K type"}
+    AD_THERMOCOUPLE_N    : USINT := 16#44;  {DE:"Thermocouple N type"}
+    AD_THERMOCOUPLE_R    : USINT := 16#45;  {DE:"Thermocouple R type"}
+    AD_THERMOCOUPLE_S    : USINT := 16#46;  {DE:"Thermocouple S type"}
+    AD_THERMOCOUPLE_T    : USINT := 16#47;  {DE:"Thermocouple T type"}
+    AD_VIN_VREF_G_1      : USINT := 16#5A;  {DE:"Vin/Vref gain=1"}
+    AD_VIN_VREF_G_2      : USINT := 16#5B;  {DE:"Vin/Vref gain=2"}
+    AD_VIN_VREF_G_4      : USINT := 16#5C;  {DE:"Vin/Vref gain=4"}
+    AD_VIN_VREF_G_8      : USINT := 16#5D;  {DE:"Vin/Vref gain=8"}
+    AD_VIN_VREF_G_16     : USINT := 16#5E;  {DE:"Vin/Vref gain=16"}
+    AD_VIN_VREF_G_32     : USINT := 16#5F;  {DE:"Vin/Vref gain=32"}
+    AD_VIN_VREF_G_64     : USINT := 16#60;  {DE:"Vin/Vref gain=64"}
+    AD_VIN_VREF_G_128    : USINT := 16#61;  {DE:"Vin/Vref gain=128"}
+    AD_RESISTOR_300_OHM  : USINT := 16#6E;  {DE:"Resistor 0-300 ohm"}
+    AD_RESISTOR_5000_OHM : USINT := 16#6F;  {DE:"Resistor 0-5000 ohm"}
+    
+END_VAR
+
+FUNCTION_BLOCK SysGetAnInp
+
+    {DE:"Get analog input"}
+
+    VAR
+        Ver     : USINT := 0;   {DE:"Function block version"}
+        IVP     : UDINT;        {DE:"Internal variables pointer"}
+    END_VAR
+
+    VAR_INPUT
+        Address : USINT;        {DE:"Module address"}
+        Channel : USINT;        {DE:"Channel"}
+        Mode    : USINT;        {DE:"Mode"}
+    END_VAR
+
+    VAR_OUTPUT
+        Done    : BOOL;         {DE:"Function done"}
+        Fault   : BOOL;         {DE:"Function fault"}
+        Value   : REAL;         {DE:"Value"}
+    END_VAR
+
+    { CODE:EMBEDDED }
+
+END_FUNCTION_BLOCK
+
+(* -------------------------------------------------------------------------- *)
+(* "SysSetAnOut" function block                                               *)
+(* -------------------------------------------------------------------------- *)
+
+VAR_GLOBAL CONSTANT
+
+    {G:"Digital to analog mode"}
+
+    DA_VOLT_0_10         : USINT := 16#01;  {DE:"0-10V"}
+    DA_VOLT_0_5          : USINT := 16#02;  {DE:"0-5V"}
+    DA_VOLT_M10_10       : USINT := 16#03;  {DE:"+-10V"}
+    DA_VOLT_M5_5         : USINT := 16#04;  {DE:"+-5V"}
+    DA_CURR_0_20         : USINT := 16#05;  {DE:"0-20mA"}
+    DA_CURR_4_20         : USINT := 16#06;  {DE:"4-20mA"}
+
+END_VAR
+
+FUNCTION_BLOCK SysSetAnOut
+
+    {DE:"Set analog output"}
+
+    VAR
+        Ver     : USINT := 0;   {DE:"Function block version"}
+        IVP     : UDINT;        {DE:"Internal variables pointer"}
+    END_VAR
+
+    VAR_INPUT
+        Address : USINT;        {DE:"Module address"}
+        Channel : USINT;        {DE:"Channel"}
+        Mode    : USINT;        {DE:"Mode"}
+        Value   : REAL;         {DE:"Value"}
+     END_VAR
+
+    VAR_OUTPUT
+        Done    : BOOL;         {DE:"Function done"}
+        Fault   : BOOL;         {DE:"Function fault"}
+    END_VAR
+
+    { CODE:EMBEDDED }
+
+END_FUNCTION_BLOCK
+
+(* -------------------------------------------------------------------------- *)
+(* "SysGetCounter" function block                                             *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION_BLOCK SysGetCounter
+
+    {DE:"Get counter value"}
+
+    VAR
+        Ver     : USINT := 0;   {DE:"Function block version"}
+        IVP     : UDINT;        {DE:"Internal variables pointer"}
+    END_VAR
+
+    VAR_INPUT
+        Address : USINT;        {DE:"Module address"}
+        Channel : USINT;        {DE:"Channel"}
+        Mode : UDINT;           {DE:"Mode"}
+        RCount  : BOOL;         {DE:"Reverse count"}
+        Reset  : BOOL;          {DE:"Count reset"}
+     END_VAR
+
+    VAR_OUTPUT
+        Done    : BOOL;         {DE:"Function done"}
+        Fault   : BOOL;         {DE:"Function fault"}
+        Value  : UDINT;         {DE:"Counter value"}
+    END_VAR
+
+    { CODE:EMBEDDED }
+
+END_FUNCTION_BLOCK
+
+(* -------------------------------------------------------------------------- *)
+(* "SysGetEncoder" function block                                             *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION_BLOCK SysGetEncoder
+
+    {DE:"Get encoder value"}
+
+    VAR
+        Ver     : USINT := 0;   {DE:"Function block version"}
+        IVP     : UDINT;        {DE:"Internal variables pointer"}
+    END_VAR
+
+    VAR_INPUT
+        Address : USINT;        {DE:"Module address"}
+        Channel : USINT;        {DE:"Channel"}
+        RCount  : BOOL;         {DE:"Reverse count"}
+        ZeroEn  : BOOL;         {DE:"Zero enable"}
+        GateEn  : BOOL;         {DE:"Gate enable"}
+        RGate   : BOOL;         {DE:"Reverse gate"}
+     END_VAR
+
+    VAR_OUTPUT
+        Done    : BOOL;         {DE:"Function done"}
+        Fault   : BOOL;         {DE:"Function fault"}
+        ZeroD   : BOOL;         {DE:"Zero pulse detected"}
+        GateD   : BOOL;         {DE:"Gate detected"}
+        GQuote  : UINT;         {DE:"Gate quote"}
+        EQuote  : UINT;         {DE:"Encoder quote"}
+    END_VAR
+
+    { CODE:EMBEDDED }
+
+END_FUNCTION_BLOCK
+
+(* -------------------------------------------------------------------------- *)
+(* "SysDMXMng" function block                                                 *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION_BLOCK SysDMXMng
+
+    {DE:"DMX protocol management"}
+
+    VAR
+        Ver     : USINT := 0;   {DE:"Function block version"}
+        IVP     : UDINT;        {DE:"Internal variables pointer"}
+    END_VAR
+
+    VAR_INPUT
+        Start  : BOOL;          {DE:"Start"}
+        File : FILEP;           {DE:"File"}
+        Status : USINT;         {DE:"Status byte"}
+        Devices : UINT;         {DE:"Number of devices"}
+        Delay : UINT;           {DE:"Interframe delay [mSec]"}
+        DataPtr : @USINT;       {DE:"Data array pointer"}
+     END_VAR
+
+    VAR_OUTPUT
+        Done    : BOOL;         {DE:"Function done"}
+        Fault   : BOOL;         {DE:"Function fault"}
+    END_VAR
+
+    { CODE:EMBEDDED }
+
+END_FUNCTION_BLOCK
+
+(* -------------------------------------------------------------------------- *)
+(* "SysSetPWMOut" function block                                              *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION_BLOCK SysSetPWMOut
+
+    {DE:"Set PWM generator output"}
+
+    VAR
+        Ver     : USINT := 0;   {DE:"Function block version"}
+        IVP     : UDINT;        {DE:"Internal variables pointer"}
+    END_VAR
+
+    VAR_INPUT
+        Address : USINT;        {DE:"Module address"}
+        Channel : USINT;        {DE:"Channel"}
+        Frequency : REAL;       {DE:"Frequency (Hz)"}
+        Duty    : REAL;         {DE:"Duty cycle (%)"}
+     END_VAR
+
+    VAR_OUTPUT
+        Done    : BOOL;         {DE:"Function done"}
+        Fault   : BOOL;         {DE:"Function fault"}
+    END_VAR
+
+    { CODE:EMBEDDED }
+
+END_FUNCTION_BLOCK
+
+(* ########################################################################## *)
+(* NETWORK DATA TYPES DEFINITIONS AND FUNCTIONS                               *)
+(* ########################################################################## *)
+
+(* -------------------------------------------------------------------------- *)
+(* "SysUDPSktSend" function                                                   *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysUDPSktSend : INT
+
+    {DE:"Send data to UDP socket"}
+
+    VAR_INPUT
+        File    : FILEP;        {DE:"File pointer"}
+        TxData  : @USINT;       {DE:"Tx data buffer"}
+        Size    : UINT;         {DE:"Data buffer size"}
+        PeerIP  : STRING[15];   {DE:"Peer IP address"}
+        PeerPort    : UINT;     {DE:"Peer port"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+(* -------------------------------------------------------------------------- *)
+(* "SysIPReach" function block                                                *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION_BLOCK SysIPReach
+
+    {DE:"Checks if IP is reachable"}
+
+    VAR
+        Ver     : USINT := 0;   {DE:"Function block version"}
+        IVP     : UDINT;        {DE:"Internal variables pointer"}
+    END_VAR
+
+    VAR_INPUT
+        Enable  : BOOL;         {DE:"Function enable"}
+        PeerIP  : STRING[15];   {DE:"Peer IP address"}
+     END_VAR
+
+    VAR_OUTPUT
+        Done    : BOOL;         {DE:"Function done"}
+        Fault   : BOOL;         {DE:"Function fault"}
+        Refresh : USINT;        {DE:"Refresh percentage (%)"}
+    END_VAR
+
+    { CODE:EMBEDDED }
+
+END_FUNCTION_BLOCK
+
+(* -------------------------------------------------------------------------- *)
+(* "SysSktListen" function block                                              *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION_BLOCK SysSktListen
+
+    {DE:"Set socket in listening"}
+
+    VAR
+        Ver     : USINT := 0;   {DE:"Function block version"}
+        IVP     : UDINT;        {DE:"Internal variables pointer"}
+    END_VAR
+
+    VAR_INPUT
+        Enable  : BOOL;         {DE:"Function enable"}
+        File    : FILEP;        {DE:"File"}
+        MyIP    : STRING[15];   {DE:"My IP address"}
+        MyPort  : UINT;         {DE:"My port"}
+        LifeTm  : UINT;         {DE:"Life time (S)"}
+        FlushTm : UINT;         {DE:"Flush time (mS)"}
+        RxSize  : UINT;         {DE:"Rx data size"}
+        TxSize  : UINT;         {DE:"Tx data size"}
+    END_VAR
+
+    VAR_OUTPUT
+        Done    : BOOL;         {DE:"Function done"}
+        Fault   : BOOL;         {DE:"Function fault"}
+        Connect : BOOL;         {DE:"Socket connect"}
+        ClientIP: STRING[15];   {DE:"Client IP address"}
+        ClientPort  : UINT;     {DE:"Client port"}
+    END_VAR
+
+    { CODE:EMBEDDED }
+
+END_FUNCTION_BLOCK
+
+(* -------------------------------------------------------------------------- *)
+(* "SysUDPSktRcv" function block                                              *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION_BLOCK SysUDPSktRcv
+
+    {DE:"Receive data from UDP socket"}
+
+    VAR
+        Ver     : USINT := 0;   {DE:"Function block version"}
+        IVP     : UDINT;        {DE:"Internal variables pointer"}
+    END_VAR
+
+    VAR_INPUT
+        Enable  : BOOL;         {DE:"Function enable"}
+        File    : FILEP;        {DE:"File pointer"}
+        PeerIP  : STRING[15];   {DE:"Peer IP address"}
+        PeerPort: UINT;         {DE:"Peer port"}
+        RxData  : @USINT;       {DE:"Rx data buffer"}
+        Size    : UINT;         {DE:"Data buffer size"}
+     END_VAR
+
+    VAR_OUTPUT
+        Done    : BOOL;         {DE:"Function done"}
+        Fault   : BOOL;         {DE:"Function fault"}
+        ClientIP: STRING[15];   {DE:"Client IP address"}
+        ClientPort  : UINT;     {DE:"Client port"}
+        RxSize  : UINT;         {DE:"Received bytes"}
+    END_VAR
+
+    { CODE:EMBEDDED }
+
+END_FUNCTION_BLOCK
+
+(* -------------------------------------------------------------------------- *)
+(* "SysUDPClient" function block                                              *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION_BLOCK SysUDPClient
+
+    {DE:"UDP client"}
+
+    VAR
+        Ver      : USINT := 0;   {DE:"Function block version"}
+        IVP      : UDINT;        {DE:"Internal variables pointer"}
+    END_VAR
+
+    VAR_INPUT
+        Connect  : BOOL;         {DE:"Connection request"}
+        PeerAdd  : @USINT;       {DE:"Peer address"}
+        PeerPort : UINT;         {DE:"Peer port"}
+        LocalAdd : @USINT;       {DE:"Local address"}
+        LocalPort: UINT;         {DE:"Local port"}
+        FlushTm  : UINT;         {DE:"Flush time [mS]"}
+        LifeTm   : UINT;         {DE:"Life time [S]"}
+        RxSize   : UINT;         {DE:"Rx buffer data size"}
+        TxSize   : UINT;         {DE:"Tx buffer data size"}
+     END_VAR
+
+    VAR_OUTPUT
+        Connected: BOOL;         {DE:"Connected"}
+        Fault    : BOOL;         {DE:"Function fault"}
+        File     : FILEP;        {DE:"File pointer"}
+    END_VAR
+
+    { CODE:EMBEDDED }
+
+END_FUNCTION_BLOCK
+
+(* -------------------------------------------------------------------------- *)
+(* "SysUDPServer" function block                                              *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION_BLOCK SysUDPServer
+
+    {DE:"UDP server"}
+
+    VAR
+        Ver      : USINT := 0;   {DE:"Function block version"}
+        IVP      : UDINT;        {DE:"Internal variables pointer"}
+    END_VAR
+
+    VAR_INPUT
+        Enable   : BOOL;         {DE:"Server enable"}
+        FilesArr : @FILEP;       {DE:"File pointer array address"}
+        LocalAdd : @USINT;       {DE:"Local address"}
+        LocalPort: UINT;         {DE:"Local port"}
+        MaxConn  : USINT;        {DE:"Max number of connections"}
+        FlushTm  : UINT;         {DE:"Flush time [mS]"}
+        LifeTm   : UINT;         {DE:"Life time [S]"}
+        RxSize   : UINT;         {DE:"Rx buffer data size"}
+        TxSize   : UINT;         {DE:"Tx buffer data size"}
+     END_VAR
+
+    VAR_OUTPUT
+        Enabled  : BOOL;         {DE:"Enabled"}
+        Fault    : BOOL;         {DE:"Function fault"}
+        ConnPeers: USINT;        {DE:"Number of peers connected"}
+    END_VAR
+
+    { CODE:EMBEDDED }
+
+END_FUNCTION_BLOCK
+
+(* -------------------------------------------------------------------------- *)
+(* "SysTCPClient" function block                                              *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION_BLOCK SysTCPClient
+
+    {DE:"TCP client"}
+
+    VAR
+        Ver      : USINT := 0;   {DE:"Function block version"}
+        IVP      : UDINT;        {DE:"Internal variables pointer"}
+    END_VAR
+
+    VAR_INPUT
+        Connect  : BOOL;         {DE:"Connection request"}
+        PeerAdd  : @USINT;       {DE:"Peer address"}
+        PeerPort : UINT;         {DE:"Peer port"}
+        LocalAdd : @USINT;       {DE:"Local address"}
+        LocalPort: UINT;         {DE:"Local port"}
+        FlushTm  : UINT;         {DE:"Flush time [mS]"}
+        LifeTm   : UINT;         {DE:"Life time [S]"}
+        RxSize   : UINT;         {DE:"Rx buffer data size"}
+        TxSize   : UINT;         {DE:"Tx buffer data size"}
+     END_VAR
+
+    VAR_OUTPUT
+        Connected: BOOL;         {DE:"Connected"}
+        Fault    : BOOL;         {DE:"Function fault"}
+        File     : FILEP;        {DE:"File pointer"}
+    END_VAR
+
+    { CODE:EMBEDDED }
+
+END_FUNCTION_BLOCK
+
+(* -------------------------------------------------------------------------- *)
+(* "SysTCPServer" function block                                              *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION_BLOCK SysTCPServer
+
+    {DE:"TCP server"}
+
+    VAR
+        Ver      : USINT := 0;   {DE:"Function block version"}
+        IVP      : UDINT;        {DE:"Internal variables pointer"}
+    END_VAR
+
+    VAR_INPUT
+        Enable   : BOOL;         {DE:"Server enable"}
+        FilesArr : @FILEP;       {DE:"File pointer array address"}
+        LocalAdd : @USINT;       {DE:"Local address"}
+        LocalPort: UINT;         {DE:"Local port"}
+        MaxConn  : USINT;        {DE:"Max number of connections"}
+        FlushTm  : UINT;         {DE:"Flush time [mS]"}
+        LifeTm   : UINT;         {DE:"Life time [S]"}
+        RxSize   : UINT;         {DE:"Rx buffer data size"}
+        TxSize   : UINT;         {DE:"Tx buffer data size"}
+     END_VAR
+
+    VAR_OUTPUT
+        Enabled  : BOOL;         {DE:"Enabled"}
+        Fault    : BOOL;         {DE:"Function fault"}
+        ConnPeers: USINT;        {DE:"Number of peers connected"}
+    END_VAR
+
+    { CODE:EMBEDDED }
+
+END_FUNCTION_BLOCK
+
+(* -------------------------------------------------------------------------- *)
+(* "SysGetIpInfos" function block                                             *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION_BLOCK SysGetIpInfos
+
+    {DE:"Get IP infos"}
+
+    VAR
+        Ver      : USINT := 0;   {DE:"Function block version"}
+        IVP      : UDINT;        {DE:"Internal variables pointer"}
+    END_VAR
+
+    VAR_INPUT
+        File     : FILEP;        {DE:"Pointer to file"}
+     END_VAR
+
+    VAR_OUTPUT
+        PeerIP   : STRING[15];   {DE:"Peer IP address"}
+        PeerPort : UINT;         {DE:"Peer port"}
+        Status   : DWORD;        {DE:"Connection status"}
+    END_VAR
+
+    { CODE:EMBEDDED }
+
+END_FUNCTION_BLOCK
+
+(* ########################################################################## *)
+(* SPY DATA FUNCTION DATA TYPES DEFINITIONS AND FUNCTIONS                     *)
+(* ########################################################################## *)
+
+(* -------------------------------------------------------------------------- *)
+(* Variable types definition                                                  *)
+(* -------------------------------------------------------------------------- *)
+
+VAR_GLOBAL CONSTANT
+    {G:"Spy mode definition"}
+
+    SPY_ASCII : USINT := 1;     {DE:"Ascii mode"}
+    SPY_ASCHEX: USINT := 10;    {DE:"Ascii with substitute unprintable chars"}
+    SPY_BINARY: USINT := 100;   {DE:"Binary mode (From 100 to 180)"}
+END_VAR
+
+(* -------------------------------------------------------------------------- *)
+(* "SysSpyData" function                                                      *)
+(* -------------------------------------------------------------------------- *)
+
+FUNCTION SysSpyData : BOOL
+
+    {DE:"Spy data"}
+
+    VAR_INPUT
+        Mode    : USINT;        {DE:"Spy mode"}
+        TFlags  : UDINT;        {DE:"Trigger flags"}
+        Label   : @USINT;       {DE:"Label pointer"}
+        DPtr    : @USINT;       {DE:"Data pointer"}
+    END_VAR
+
+    {CODE:EMBEDDED}
+
+END_FUNCTION
+
+]]>
+		</target>
+		<targetXML name="HolidaysOnCSV.tgtx" fullXml="true">
+			<target>
+				<resources>
+					<resource name="ELS20" processor="ARMv7M">
+						<task id="0" name="Fast" type="cyclic" period="1000" descr="Fast task">
+							<constraints minPeriod="100" maxPeriod="10000"/>
+						</task>
+						<task id="1" name="Slow" type="cyclic" period="10000" descr="Slow task">
+							<constraints minPeriod="1000" maxPeriod="100000"/>
+						</task>
+						<task id="2" name="Boot" type="single" period="0" descr="Boot task"/>
+						<task id="3" name="Back" period="0" type="cyclic" descr="Background task"/>
+					</resource>
+				</resources>
+			</target>
+		</targetXML>
+		<libraries/>
+		<aux>
+			<src fullXml="false" name="HMIsManager.PLC" order="0" hidden="false">
+				<![CDATA[]]>
+			</src>
+		</aux>
+		<workspace>
+			<root name="HolidaysOnCSV" nextID="172">
+				<folder name="POUs" id="1">
+					<Pou name="FBDExample" id="38"/>
+					<Pou name="STExample" id="74"/>
+				</folder>
+				<folder name="FBs" id="3">
+					<Pou name="CSVHolidays" id="4"/>
+					<Pou name="SNTPRequest" id="46"/>
+					<Pou name="eTON" id="50"/>
+				</folder>
+				<folder id="10" name="Global variables">
+					<GlobalVars name="Inputs" id="40"/>
+					<GlobalVars name="Outputs" id="55"/>
+				</folder>
+			</root>
+		</workspace>
+	</sources>
+	<codegen crossReference="false" crossReferenceOptions="0x3000001D" listing="true" hideSourceCodeInListing="true" saveEXPFile="true" saveTargetFiles="false" warningEnable="true" symMap="true" checkIndexType="false" waitExtension="false" allocateUnusedVariables="false" checkArrayBounds="false" checkDivisionByZero="false" checkPointers="false" checkReferences="false" checkInterfaces="false" customTargetBINFileName="HolidaysOnCSV.bin" customTargetTSCFileName="HolidaysOnCSV_source.bin" customTargetTDSFileName="HolidaysOnCSV_debug.bin" generateCustomFilesName="false">
+		<disabledWarnings/>
+		<applicationDataBlocks/>
+	</codegen>
+	<simWorkspaces/>
+	<debug watchRefresh="20" watchVarRefresh="0" watchMaxArray="20" autoSaveWatchList="false"/>
+	<editor useOldGridSize="false"/>
+	<userDef>
+		<release>CSVAnnualF</release>
+		<author/>
+		<note/>
+		<version/>
+		<password disabled="true"/>
+	</userDef>
+	<downloadSequence sourceCode="never" debugSymbols="onPLCApplicationDownload"/>
+	<commands>
+		<postbuild/>
+		<postdown/>
+		<predown/>
+	</commands>
+	<resources>
+		<configuration template="LogicLab.pct" version="1">
+			<data protocol="root">
+				<project_config nextID="0">
+					<datacomment/>
+				</project_config>
+				<Mps054_XTarget_12_0 template="Elsist\Plc\Mps054_XTarget_12_0.pct" version="1" name="SlimLine Mps054 XTarget" caption="SlimLine Mps054 XTarget">
+					<config>
+						<elsist_hmis/>
+					</config>
+				</Mps054_XTarget_12_0>
+			</data>
+		</configuration>
+	</resources>
+</plcProject>
